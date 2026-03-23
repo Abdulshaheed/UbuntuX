@@ -83,10 +83,19 @@ class _HomePageState extends State<HomePage> {
                   return const TrustScoreCard(score: 0, riskLevel: "N/A");
                 }
                 final user = snapshot.data!;
-                return TrustScoreCard(
-                  score: user.trustScore, 
-                  riskLevel: user.riskLevel,
-                  factors: user.trustAnalysisFactors,
+                return Column(
+                  children: [
+                    TrustScoreCard(
+                      score: user.trustScore, 
+                      riskLevel: user.riskLevel,
+                      isKycVerified: user.isKycVerified,
+                      factors: user.trustAnalysisFactors,
+                    ),
+                    if (!user.isKycVerified) ...[
+                      const SizedBox(height: 16),
+                      _buildKycBooster(context),
+                    ],
+                  ],
                 );
               },
             ),
@@ -144,6 +153,120 @@ class _HomePageState extends State<HomePage> {
           child: const Text('See All'),
         ),
       ],
+    );
+  }
+
+
+  Widget _buildKycBooster(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.bolt_rounded, color: Colors.amber),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Score Booster Available',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
+                ),
+                Text(
+                  'Verify your identity with Interswitch to gain +15 trust points.',
+                  style: TextStyle(color: Colors.amber.withOpacity(0.8), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => _showKycDialog(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+              minimumSize: const Size(64, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const Text('Verify', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showKycDialog(BuildContext context) {
+    final TextEditingController bvnController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: UbuntuXTheme.deepNavy,
+        title: const Text('Identity Verification'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your 11-digit BVN to verify your identity via Interswitch Identity API.',
+              style: TextStyle(fontSize: 14, color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: bvnController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Bank Verification Number (BVN)',
+                hintText: '12345678901',
+              ),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (bvnController.text.length != 11) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid 11-digit BVN')),
+                );
+                return;
+              }
+              Navigator.pop(context);
+              
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator()),
+              );
+
+              try {
+                await repository.verifyKyc("u4", bvnController.text);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Identity Verified Successfully! Trust Score Boosted.')),
+                );
+                setState(() {
+                  userFuture = repository.getTrustPrediction("u4");
+                });
+              } catch (e) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Verification Failed: $e')),
+                );
+              }
+            },
+            child: const Text('Verify Now'),
+          ),
+        ],
+      ),
     );
   }
 

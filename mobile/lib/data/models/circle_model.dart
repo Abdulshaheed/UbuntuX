@@ -46,6 +46,7 @@ class UserModel extends UbuntuUser {
     required super.trustScore,
     required super.onTimePercentage,
     required super.riskLevel,
+    required super.isKycVerified,
     required super.trustAnalysisFactors,
   });
 
@@ -56,6 +57,7 @@ class UserModel extends UbuntuUser {
       trustScore: json['trust_score'] ?? 0,
       onTimePercentage: (json['on_time_percentage'] as num?)?.toDouble() ?? 0.0,
       riskLevel: json['risk_level'] ?? "Medium",
+      isKycVerified: json['is_kyc_verified'] ?? false,
       trustAnalysisFactors: json['analysis_factors'] != null 
           ? Map<String, String>.from(json['analysis_factors'])
           : {},

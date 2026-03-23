@@ -28,6 +28,7 @@ class UbuntuUser {
   final int trustScore;
   final double onTimePercentage;
   final String riskLevel;
+  final bool isKycVerified;
   final Map<String, String> trustAnalysisFactors;
 
   UbuntuUser({
@@ -36,6 +37,7 @@ class UbuntuUser {
     required this.trustScore,
     required this.onTimePercentage,
     this.riskLevel = "Medium",
+    this.isKycVerified = false,
     this.trustAnalysisFactors = const {},
   });
 }

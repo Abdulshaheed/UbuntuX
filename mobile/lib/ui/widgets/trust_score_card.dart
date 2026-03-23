@@ -4,12 +4,14 @@ import 'package:mobile/core/config/app_theme.dart';
 class TrustScoreCard extends StatelessWidget {
   final int score;
   final String riskLevel;
+  final bool isKycVerified;
   final Map<String, String> factors;
 
   const TrustScoreCard({
     super.key, 
     required this.score,
     this.riskLevel = "Medium",
+    this.isKycVerified = false,
     this.factors = const {},
   });
 
@@ -121,12 +123,23 @@ class TrustScoreCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: riskColor.withOpacity(0.2),
+                  color: isKycVerified ? Colors.green.withOpacity(0.2) : riskColor.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  '$riskLevel Risk',
-                  style: TextStyle(color: riskColor, fontSize: 12, fontWeight: FontWeight.bold),
+                child: Row(
+                  children: [
+                    if (isKycVerified) 
+                      const Icon(Icons.verified_user_rounded, color: Colors.greenAccent, size: 14),
+                    if (isKycVerified) const SizedBox(width: 4),
+                    Text(
+                      isKycVerified ? 'Verified' : '$riskLevel Risk',
+                      style: TextStyle(
+                        color: isKycVerified ? Colors.greenAccent : riskColor, 
+                        fontSize: 12, 
+                        fontWeight: FontWeight.bold
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -176,8 +189,13 @@ class TrustScoreCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Based on real-time saving patterns.',
-            style: TextStyle(color: UbuntuXTheme.silverGray.withOpacity(0.5), fontSize: 10),
+            isKycVerified 
+              ? 'Identity verified via Interswitch Sentinel.' 
+              : 'Identity not verified. Boost your score with KYC.',
+            style: TextStyle(
+              color: isKycVerified ? Colors.greenAccent.withOpacity(0.7) : UbuntuXTheme.silverGray.withOpacity(0.5), 
+              fontSize: 10
+            ),
           ),
         ],
       ),

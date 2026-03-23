@@ -16,4 +16,6 @@ abstract class CircleRepository {
     required String creatorId,
     bool allowXb = false,
   });
+  Future<void> processPayout(String circleId, String userId, String bankCode, String accountNo, String currency);
+  Future<void> verifyKyc(String userId, String bvn);
 }

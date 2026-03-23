@@ -89,6 +89,15 @@ class CircleRepositoryImpl implements CircleRepository {
     );
   }
 
+  @override
+  Future<void> verifyKyc(String userId, String bvn) async {
+    await dio.post(
+      "$baseUrl/users/$userId/verify-kyc",
+      queryParameters: {"bvn": bvn},
+    );
+  }
+
+  @override
   Future<void> processPayout(String circleId, String userId, String bankCode, String accountNo, String currency) async {
     await dio.post(
       "$baseUrl/circles/$circleId/payout",
