@@ -1,0 +1,15 @@
+{
+  "user": {
+    "id": "usr_01H9YV84ZJ5QWD",
+    "name": "Alex Oye",
+    "trustScore": 85,
+    "onTimePercentage": 95.5,
+    "riskLevel": "Low",
+    "trustAnalysisFactors": {
+      "days_late": "Rarely",
+      "total_contributions": "High (20+)",
+      "is_cross_border": "Verified",
+      "circle_count": "Active in 3 circles"
+    }
+  }
+}

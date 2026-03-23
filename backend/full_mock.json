@@ -1,0 +1,102 @@
+{
+    "GET /circles": [
+        {
+            "id": "c1",
+            "name": "Lagos Techies",
+            "contribution_amount": 50000.0,
+            "max_members": 5,
+            "frequency": "Monthly",
+            "member_ids": [
+                "u2"
+            ],
+            "total_pot": 50000.0,
+            "is_cross_border_allowed": false
+        },
+        {
+            "id": "c2",
+            "name": "Cross-Border Explorers",
+            "contribution_amount": 100000.0,
+            "max_members": 3,
+            "frequency": "Weekly",
+            "member_ids": [
+                "u1",
+                "u3"
+            ],
+            "total_pot": 200000.0,
+            "is_cross_border_allowed": true
+        }
+    ],
+    "GET /circles/{circle_id}": {
+        "id": "c1",
+        "name": "Lagos Techies",
+        "contribution_amount": 50000.0,
+        "max_members": 5,
+        "frequency": "Monthly",
+        "member_ids": [
+            "u2"
+        ],
+        "total_pot": 50000.0,
+        "is_cross_border_allowed": false
+    },
+    "GET /exchange-rate": {
+        "base": "GBP",
+        "target": "NGN",
+        "rate": 1950.5
+    },
+    "POST /circles/{circle_id}/join": {
+        "message": "Successfully joined circle",
+        "circle": {
+            "id": "c1",
+            "name": "Lagos Techies",
+            "contribution_amount": 50000.0,
+            "max_members": 5,
+            "frequency": "Monthly",
+            "member_ids": [
+                "u2",
+                "user_123"
+            ],
+            "total_pot": 50000.0,
+            "is_cross_border_allowed": false
+        }
+    },
+    "POST /circles/{circle_id}/pay": {
+        "status": "Success",
+        "message": "Payment secured via Interswitch NGN Gateway",
+        "total_pot": 100000.0,
+        "currency_used": "NGN",
+        "transaction_ref": "TX-ISW-9876543210"
+    },
+    "POST /predict-trust": {
+        "user_id": "u4",
+        "trust_score": 85,
+        "risk_level": "Low",
+        "analysis_factors": {
+            "Days Late": "1 days (Avg)",
+            "Total Contributions": "12 payments made",
+            "Cross-Border User": "No",
+            "Active Circles": "Member of 1 circles",
+            "Account Age": "6 months (Sentinel baseline)"
+        }
+    },
+    "POST /circles/create": {
+        "message": "Circle created successfully!",
+        "circle": {
+            "id": "c4",
+            "name": "Abuja Startup Fund",
+            "contribution_amount": 15000.0,
+            "max_members": 10,
+            "frequency": "Daily",
+            "member_ids": [
+                "u4"
+            ],
+            "total_pot": 0.0,
+            "is_cross_border_allowed": false
+        }
+    },
+    "GET /users/{user_id}": {
+        "id": "u4",
+        "name": "Me (Demo)",
+        "trust_score": 75,
+        "on_time_percentage": 80.0
+    }
+}
