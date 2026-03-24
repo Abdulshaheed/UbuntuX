@@ -9,6 +9,7 @@ class CircleModel extends Circle {
     required super.frequency,
     required super.memberIds,
     required super.totalPot,
+    required super.creatorId,
     required super.isCrossBorderAllowed,
   });
 
@@ -21,6 +22,7 @@ class CircleModel extends Circle {
       frequency: json['frequency'],
       memberIds: List<String>.from(json['member_ids'] ?? []),
       totalPot: (json['total_pot'] as num?)?.toDouble() ?? 0.0,
+      creatorId: json['creator_id'] ?? "",
       isCrossBorderAllowed: json['is_cross_border_allowed'] ?? false,
     );
   }
@@ -34,6 +36,7 @@ class CircleModel extends Circle {
       'frequency': frequency,
       'member_ids': memberIds,
       'total_pot': totalPot,
+      'creator_id': creatorId,
       'is_cross_border_allowed': isCrossBorderAllowed,
     };
   }

@@ -132,7 +132,7 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
                       fontSize: 20,
                     ),
                   ),
-                  if (circle.totalPot > 0)
+                  if (circle.totalPot > 0 && circle.creatorId == "u4") // "u4" is the demo user
                     TextButton.icon(
                       onPressed: () async {
                         try {

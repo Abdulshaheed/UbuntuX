@@ -6,6 +6,7 @@ class Circle {
   final String frequency;
   final List<String> memberIds;
   final double totalPot;
+  final String creatorId;
   final bool isCrossBorderAllowed;
 
   Circle({
@@ -16,6 +17,7 @@ class Circle {
     required this.frequency,
     required this.memberIds,
     required this.totalPot,
+    required this.creatorId,
     this.isCrossBorderAllowed = false,
   });
 

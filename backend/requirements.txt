@@ -6,3 +6,7 @@ pandas
 numpy
 python-dotenv
 httpx
+sqlalchemy
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart

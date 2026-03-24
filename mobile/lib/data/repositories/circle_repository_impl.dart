@@ -99,10 +99,11 @@ class CircleRepositoryImpl implements CircleRepository {
 
   @override
   Future<void> processPayout(String circleId, String userId, String bankCode, String accountNo, String currency) async {
+    // Note: userId is now handled by the Backend via JWT Token. 
+    // For MVP/Demo, we assume the token is set in dio.options.headers['Authorization']
     await dio.post(
       "$baseUrl/circles/$circleId/payout",
       queryParameters: {
-        "user_id": userId,
         "bank_code": bankCode,
         "account_no": accountNo,
         "target_currency": currency,
