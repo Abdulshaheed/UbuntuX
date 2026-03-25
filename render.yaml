@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: ubuntux-backend
+    env: python
+    rootDirectory: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: ISW_CLIENT_ID
+        sync: false
+      - key: ISW_SECRET_KEY
+        sync: false
+      - key: ISW_ID_API_BASE_URL
+        value: "https://api-marketplace-routing.k8.isw.la/marketplace-routing"
+      - key: ISW_PASSPORT_URL
+        value: "https://qa.interswitchng.com/passport/oauth/token"
+      - key: ISW_MERCHANT_CODE
+        value: "MX00000"
+      - key: ISW_PAY_ITEM_ID
+        value: "101"

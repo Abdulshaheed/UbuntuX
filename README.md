@@ -40,7 +40,17 @@
 | Name | Role | Contributions |
 | :--- | :--- | :--- |
 | **Abdulshaheed Abdullahi** | **Team Lead / Fullstack** | Architected the Adashi logic, implemented Interswitch API integrations (OAuth2, BVN, Checkout), and developed the Flutter UI. |
-| **Orjiakor David Cosmas** | **Product Designer** | [Description of contribution:  UI Design, Research, Testing] |
+| **Orjiakor David Cosmas** | **Product Designer** | [Description of contribution: UI Design, Research, Testing] |
+
+---
+
+## 🚀 One-Click Deployment (Backend)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Abdulshaheed/UbuntuX)
+
+1. Click the button above.
+2. Render will automatically detect the `/backend` root directory using the `render.yaml` blueprint.
+3. **Environment Variables**: Make sure to set your Interswitch `CLIENT_ID` and `SECRET_KEY` in the Render dashboard.
 
 ---
 
