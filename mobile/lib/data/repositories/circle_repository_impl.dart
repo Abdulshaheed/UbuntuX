@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/data/models/circle_model.dart';
 import 'package:mobile/domain/entities/circle.dart';
 import 'package:mobile/domain/repositories/circle_repository.dart';
@@ -11,7 +12,58 @@ class CircleRepositoryImpl implements CircleRepository {
       : baseUrl = customBaseUrl ?? "http://10.0.2.2:8000" {
     dio.options.connectTimeout = const Duration(seconds: 10);
     dio.options.receiveTimeout = const Duration(seconds: 10);
+    
+    // Use an interceptor to ensure the token is always present if it exists
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        if (!options.headers.containsKey('Authorization')) {
+          final prefs = await SharedPreferences.getInstance();
+          final token = prefs.getString('auth_token');
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        }
+        return handler.next(options);
+      },
+    ));
   }
+
+
+  @override
+  Future<String> login(String email, String password) async {
+    final formData = FormData.fromMap({
+      "username": email,
+      "password": password,
+    });
+    
+    final response = await dio.post("$baseUrl/token", data: formData);
+    final token = response.data['access_token'];
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_token', token);
+    dio.options.headers['Authorization'] = 'Bearer $token';
+    
+    return token;
+  }
+
+  @override
+  Future<void> register(String email, String name, String password) async {
+    await dio.post(
+      "$baseUrl/register",
+      data: {
+        "email": email,
+        "name": name,
+        "password": password,
+      },
+    );
+  }
+
+  @override
+  Future<UbuntuUser> getMe() async {
+    final response = await dio.get("$baseUrl/users/me");
+    return UserModel.fromJson(response.data);
+  }
+
 
   @override
   Future<List<Circle>> getCircles() async {
@@ -78,13 +130,12 @@ class CircleRepositoryImpl implements CircleRepository {
   }) async {
     await dio.post(
       "$baseUrl/circles/create",
-      queryParameters: {
+      data: {
         "name": name,
         "contribution_amount": amount,
         "frequency": frequency,
         "max_members": maxMembers,
-        "creator_id": creatorId,
-        "allow_xb": allowXb,
+        "is_cross_border_allowed": allowXb,
       },
     );
   }
@@ -92,15 +143,13 @@ class CircleRepositoryImpl implements CircleRepository {
   @override
   Future<void> verifyKyc(String userId, String bvn) async {
     await dio.post(
-      "$baseUrl/users/$userId/verify-kyc",
+      "$baseUrl/users/verify-kyc",
       queryParameters: {"bvn": bvn},
     );
   }
 
   @override
-  Future<void> processPayout(String circleId, String userId, String bankCode, String accountNo, String currency) async {
-    // Note: userId is now handled by the Backend via JWT Token. 
-    // For MVP/Demo, we assume the token is set in dio.options.headers['Authorization']
+  Future<void> processPayout(String circleId, String bankCode, String accountNo, String currency) async {
     await dio.post(
       "$baseUrl/circles/$circleId/payout",
       queryParameters: {
@@ -109,6 +158,21 @@ class CircleRepositoryImpl implements CircleRepository {
         "target_currency": currency,
       },
     );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getBanks() async {
+    final response = await dio.get("$baseUrl/banks");
+    return List<Map<String, dynamic>>.from(response.data);
+  }
+
+  @override
+  Future<Map<String, dynamic>> accountLookup(String bankCode, String accountNo) async {
+    final response = await dio.post(
+      "$baseUrl/users/account-lookup",
+      queryParameters: {"bank_code": bankCode, "account_no": accountNo},
+    );
+    return response.data;
   }
 }
 

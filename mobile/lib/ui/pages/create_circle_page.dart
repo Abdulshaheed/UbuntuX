@@ -50,7 +50,14 @@ class _CreateCirclePageState extends State<CreateCirclePage> {
       }
     } on DioException catch (e) {
       if (mounted) {
-        _showErrorDialog(e.response?.data['detail'] ?? "Failed to create circle");
+        final detail = e.response?.data['detail'];
+        String message = "Failed to create circle";
+        if (detail is String) {
+          message = detail;
+        } else if (detail is List) {
+          message = detail.map((e) => e.toString()).join('\n');
+        }
+        _showErrorDialog(message);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/core/config/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/ui/pages/home_page.dart';
+import 'package:mobile/ui/pages/register_page.dart';
+import 'package:mobile/data/repositories/circle_repository_impl.dart';
+import 'package:dio/dio.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,25 +13,45 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  late final CircleRepositoryImpl repository;
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    repository = CircleRepositoryImpl(Dio());
+  }
+
   Future<void> _login() async {
-    if (_phoneController.text.isEmpty) return;
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter email and password')));
+      return;
+    }
 
     setState(() => _isLoading = true);
     
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_phone', _phoneController.text);
-
-    // Artificial delay for "premium" feel
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+    try {
+      await repository.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login Failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -75,14 +97,32 @@ class _LoginPageState extends State<LoginPage> {
                 style: TextStyle(color: UbuntuXTheme.silverGray, fontSize: 16),
               ),
               const SizedBox(height: 48),
+              const SizedBox(height: 48),
               TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 style: const TextStyle(color: Colors.white, fontSize: 18),
                 decoration: InputDecoration(
-                  labelText: 'Phone Number',
+                  labelText: 'Email Address',
                   labelStyle: TextStyle(color: UbuntuXTheme.silverGray),
-                  prefixIcon: const Icon(Icons.phone_iphone_rounded, color: UbuntuXTheme.accentCyan),
+                  prefixIcon: const Icon(Icons.email_outlined, color: UbuntuXTheme.accentCyan),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: UbuntuXTheme.slateBlue.withOpacity(0.5)),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: UbuntuXTheme.accentCyan),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  labelStyle: TextStyle(color: UbuntuXTheme.silverGray),
+                  prefixIcon: const Icon(Icons.lock_outline, color: UbuntuXTheme.accentCyan),
                   enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: UbuntuXTheme.slateBlue.withOpacity(0.5)),
                   ),
@@ -114,11 +154,24 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 24),
               Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                    );
+                  },
+                  child: const Text('New to UbuntuX? Create Account', style: TextStyle(color: UbuntuXTheme.accentCyan)),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Center(
                 child: Text(
                   'Secured by Ubuntu Guardian AI',
                   style: TextStyle(color: UbuntuXTheme.silverGray.withOpacity(0.5), fontSize: 12),
                 ),
               ),
+
             ],
           ),
         ),

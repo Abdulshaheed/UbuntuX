@@ -172,6 +172,17 @@ async def get_circle(circle_id: str, db: Session = Depends(get_db)):
 async def get_exchange_rate():
     return {"base": "GBP", "target": "NGN", "rate": currency_converter.get_exchange_rate()}
 
+@app.get("/banks")
+async def get_banks():
+    return await isw_service.get_banks()
+
+@app.post("/users/account-lookup")
+async def account_lookup(bank_code: str, account_no: str):
+    is_valid, data = await isw_service.account_lookup(bank_code, account_no)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Account lookup failed")
+    return data
+
 @app.post("/circles/{circle_id}/join")
 async def join_circle(circle_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     circle = db.query(models.Circle).filter(models.Circle.id == circle_id).first()
@@ -330,6 +341,13 @@ async def verify_kyc(bvn: str, current_user: models.User = Depends(get_current_u
         
     current_user.is_kyc_verified = True
     current_user.bvn = bvn
+    
+    # Update profile from Interswitch Full Details
+    first_name = data.get("firstName", "")
+    last_name = data.get("lastName", "")
+    if first_name and last_name:
+        current_user.name = f"{first_name} {last_name}"
+    
     db.commit()
     
     # Trigger score recalculation

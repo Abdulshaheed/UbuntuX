@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:mobile/ui/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/config/app_theme.dart';
 import 'package:mobile/ui/widgets/trust_score_card.dart';
 import 'package:mobile/ui/widgets/home_action_button.dart';
 import 'package:mobile/ui/pages/circle_list_page.dart';
 import 'package:mobile/ui/pages/create_circle_page.dart';
+import 'package:mobile/ui/pages/circle_details_page.dart';
 import 'package:mobile/data/repositories/circle_repository_impl.dart';
 import 'package:mobile/domain/entities/circle.dart';
 
@@ -19,21 +21,61 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late final CircleRepositoryImpl repository;
   late Future<UbuntuUser> userFuture;
+  late Future<List<Circle>> activeCirclesFuture;
   String _userPhone = "Ubuntu";
 
   @override
   void initState() {
     super.initState();
     repository = CircleRepositoryImpl(Dio());
-    userFuture = repository.getTrustPrediction("u4"); // Fetch for demo user
-    _loadUserPhone();
+    _refreshData();
   }
 
-  Future<void> _loadUserPhone() async {
+  void _refreshData() {
+    userFuture = _loadInitialData();
+    activeCirclesFuture = _loadActiveCircles();
+  }
+
+  Future<UbuntuUser> _loadInitialData() async {
+    try {
+      final user = await repository.getMe();
+      if (mounted) {
+        setState(() {
+          _userPhone = user.name;
+        });
+      }
+      return user;
+    } catch (e) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<Circle>> _loadActiveCircles() async {
+    try {
+      final user = await repository.getMe();
+      final allCircles = await repository.getCircles();
+      return allCircles.where((c) => c.memberIds.contains(user.id)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _userPhone = prefs.getString('user_phone') ?? "Ubuntu";
-    });
+    await prefs.remove('auth_token');
+
+    // Clear repository headers
+    repository.dio.options.headers.remove('Authorization');
+
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -52,89 +94,151 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.notifications_none_rounded),
           ),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.person_outline_rounded),
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hello, $_userPhone!',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your communal wealth journey starts here.',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 32),
-            
-            FutureBuilder<UbuntuUser>(
-              future: userFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const TrustScorePlaceholder();
-                }
-                if (snapshot.hasError) {
-                  return const TrustScoreCard(score: 0, riskLevel: "N/A");
-                }
-                final user = snapshot.data!;
-                return Column(
-                  children: [
-                    TrustScoreCard(
-                      score: user.trustScore, 
-                      riskLevel: user.riskLevel,
-                      isKycVerified: user.isKycVerified,
-                      factors: user.trustAnalysisFactors,
-                    ),
-                    if (!user.isKycVerified) ...[
-                      const SizedBox(height: 16),
-                      _buildKycBooster(context),
-                    ],
-                  ],
-                );
-              },
-            ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _refreshData();
+          });
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hello, $_userPhone!',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your communal wealth journey starts here.',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 32),
 
-            const SizedBox(height: 40),
-            Text(
-              'Quick Actions',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: 18,
-                    letterSpacing: 0.5,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            HomeActionButton(
-              label: 'Join Savings Circle',
-              icon: Icons.group_add_rounded,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CircleListPage()),
-                ).then((_) {
-                  setState(() {
-                    userFuture = repository.getTrustPrediction("u4");
+              FutureBuilder<UbuntuUser>(
+                future: userFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const TrustScorePlaceholder();
+                  }
+                  if (snapshot.hasError) {
+                    return const TrustScoreCard(score: 0, riskLevel: "N/A");
+                  }
+                  final user = snapshot.data!;
+                  return Column(
+                    children: [
+                      TrustScoreCard(
+                        score: user.trustScore,
+                        riskLevel: user.riskLevel,
+                        isKycVerified: user.isKycVerified,
+                        factors: user.trustAnalysisFactors,
+                      ),
+                      if (!user.isKycVerified) ...[
+                        const SizedBox(height: 16),
+                        _buildKycBooster(context),
+                      ],
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 40),
+              Text(
+                'Quick Actions',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontSize: 18,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              HomeActionButton(
+                label: 'Join Savings Circle',
+                icon: Icons.group_add_rounded,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CircleListPage(),
+                    ),
+                  ).then((_) {
+                    setState(() {
+                      _refreshData();
+                    });
                   });
-                });
-              },
+                },
+              ),
+              const SizedBox(height: 16),
+              HomeActionButton(
+                label: 'Interswitch Cross-Border',
+                icon: Icons.public_rounded,
+                onPressed: () {},
+                color: UbuntuXTheme.slateBlue,
+              ),
+              const SizedBox(height: 40),
+              _buildSectionHeader(context, 'My Active Circles'),
+              const SizedBox(height: 16),
+
+              FutureBuilder<List<Circle>>(
+                future: activeCirclesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final circles = snapshot.data ?? [];
+                  if (circles.isEmpty) {
+                    return _buildEmptyCirclePlaceholder(context);
+                  }
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: circles.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final circle = circles[index];
+                      return _buildActiveCircleCard(context, circle);
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveCircleCard(BuildContext context, Circle circle) {
+    return Container(
+      decoration: BoxDecoration(
+        color: UbuntuXTheme.deepNavy,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: UbuntuXTheme.slateBlue.withOpacity(0.3)),
+      ),
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CircleDetailsPage(circleId: circle.id),
             ),
-            const SizedBox(height: 16),
-            HomeActionButton(
-              label: 'Cross-Border Transfer',
-              icon: Icons.send_rounded,
-              onPressed: () {},
-              color: UbuntuXTheme.slateBlue,
-            ),
-            const SizedBox(height: 40),
-            _buildSectionHeader(context, 'Active Circles'),
-            const SizedBox(height: 16),
-            _buildEmptyCirclePlaceholder(context),
-          ],
+          ).then((_) => setState(() => _refreshData()));
+        },
+        title: Text(
+          circle.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('Pot: ₦${circle.totalPot.toStringAsFixed(0)}'),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: UbuntuXTheme.accentCyan,
         ),
       ),
     );
@@ -148,14 +252,10 @@ class _HomePageState extends State<HomePage> {
           title,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 18),
         ),
-        TextButton(
-          onPressed: () {},
-          child: const Text('See All'),
-        ),
+        TextButton(onPressed: () {}, child: const Text('See All')),
       ],
     );
   }
-
 
   Widget _buildKycBooster(BuildContext context) {
     return Container(
@@ -176,11 +276,17 @@ class _HomePageState extends State<HomePage> {
               children: [
                 const Text(
                   'Score Booster Available',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
                 ),
                 Text(
                   'Verify your identity with Interswitch to gain +15 trust points.',
-                  style: TextStyle(color: Colors.amber.withOpacity(0.8), fontSize: 12),
+                  style: TextStyle(
+                    color: Colors.amber.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -204,7 +310,7 @@ class _HomePageState extends State<HomePage> {
     final TextEditingController bvnController = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: UbuntuXTheme.deepNavy,
         title: const Text('Identity Verification'),
         content: Column(
@@ -228,39 +334,53 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
               if (bvnController.text.length != 11) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a valid 11-digit BVN')),
+                  const SnackBar(
+                    content: Text('Please enter a valid 11-digit BVN'),
+                  ),
                 );
                 return;
               }
-              Navigator.pop(context);
-              
+
+              Navigator.pop(dialogContext); // Close input dialog
+
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => const Center(child: CircularProgressIndicator()),
+                builder: (loadingContext) =>
+                    const Center(child: CircularProgressIndicator()),
               );
 
               try {
-                await repository.verifyKyc("u4", bvnController.text);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Identity Verified Successfully! Trust Score Boosted.')),
-                );
-                setState(() {
-                  userFuture = repository.getTrustPrediction("u4");
-                });
+                final user = await repository.getMe();
+                await repository.verifyKyc(user.id, bvnController.text);
+
+                if (mounted) {
+                  Navigator.of(context).pop(); // Close loading indicator
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Identity Verified Successfully! Trust Score Boosted.',
+                      ),
+                    ),
+                  );
+                  setState(() {
+                    _refreshData();
+                  });
+                }
               } catch (e) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Verification Failed: $e')),
-                );
+                if (mounted) {
+                  Navigator.of(context).pop(); // Close loading indicator
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Verification Failed: $e')),
+                  );
+                }
               }
             },
             child: const Text('Verify Now'),
@@ -277,9 +397,7 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: UbuntuXTheme.deepNavy.withOpacity(0.5),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: UbuntuXTheme.slateBlue.withOpacity(0.3),
-        ),
+        border: Border.all(color: UbuntuXTheme.slateBlue.withOpacity(0.3)),
       ),
       child: Column(
         children: [
@@ -297,11 +415,13 @@ class _HomePageState extends State<HomePage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CreateCirclePage()),
+                MaterialPageRoute(
+                  builder: (context) => const CreateCirclePage(),
+                ),
               ).then((result) {
                 if (result == true) {
                   setState(() {
-                    userFuture = repository.getTrustPrediction("u4");
+                    _refreshData();
                   });
                 }
               });

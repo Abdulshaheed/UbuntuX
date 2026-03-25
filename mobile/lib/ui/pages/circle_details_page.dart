@@ -18,8 +18,10 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
   late final CircleRepositoryImpl repository;
   late Future<Circle> circleFuture;
   late Future<List<UbuntuUser>> membersFuture;
+  UbuntuUser? currentUser;
   bool isGBP = false;
   double exchangeRate = 1950.0;
+
 
   @override
   void initState() {
@@ -28,19 +30,26 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
     _loadData();
   }
 
-  void _loadData() {
+  void _loadData() async {
     circleFuture = repository.getCircle(widget.circleId);
     membersFuture = circleFuture.then((circle) {
       return Future.wait(circle.memberIds.map((id) => repository.getUser(id)));
     });
-    repository.getExchangeRate().then((rate) {
+    
+    try {
+      final user = await repository.getMe();
+      final rate = await repository.getExchangeRate();
       if (mounted) {
         setState(() {
+          currentUser = user;
           exchangeRate = rate;
         });
       }
-    });
+    } catch (e) {
+      print("Error loading user or exchange rate: $e");
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +59,7 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
         backgroundColor: Colors.transparent,
         actions: [
           Row(
+
             children: [
               Text('NGN', style: TextStyle(fontSize: 12, color: !isGBP ? UbuntuXTheme.accentCyan : Colors.white54)),
               Switch(
@@ -132,31 +142,36 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
                       fontSize: 20,
                     ),
                   ),
-                  if (circle.totalPot > 0 && circle.creatorId == "u4") // "u4" is the demo user
-                    TextButton.icon(
-                      onPressed: () async {
-                        try {
-                           showDialog(
-                             context: context,
-                             barrierDismissible: false,
-                             builder: (_) => const Center(child: CircularProgressIndicator()),
-                           );
-                           await repository.processPayout(circle.id, "u4", "058", "0123456789", isGBP ? "GBP" : "NGN");
-                           Navigator.pop(context);
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             const SnackBar(content: Text('Payout Successful! Funds transferred.'), backgroundColor: Colors.green),
-                           );
-                           setState(() { _loadData(); });
-                        } catch (e) {
-                           Navigator.pop(context);
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             SnackBar(content: Text('Payout Failed: $e'), backgroundColor: Colors.red),
-                           );
-                        }
-                      },
-                      icon: const Icon(Icons.account_balance_wallet, size: 16, color: Colors.greenAccent),
-                      label: const Text('Disburse Pot', style: TextStyle(color: Colors.greenAccent, fontSize: 12)),
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  if (circle.creatorId == currentUser?.id)
+                    FutureBuilder<List<UbuntuUser>>(
+                      future: membersFuture,
+                      builder: (context, snapshot) {
+                        final canDisburse = circle.totalPot > 0;
+                        if (!snapshot.hasData) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              onPressed: canDisburse ? () => _showPayoutDialog(circle, snapshot.data!) : null,
+                              icon: Icon(Icons.account_balance_wallet, size: 16, color: canDisburse ? Colors.greenAccent : Colors.grey),
+                              label: Text(
+                                'Disburse Pot', 
+                                style: TextStyle(color: canDisburse ? Colors.greenAccent : Colors.grey, fontSize: 12)
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero, 
+                                minimumSize: const Size(0, 0), 
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap
+                              ),
+                            ),
+                            if (!canDisburse)
+                              const Text(
+                                '(Pot is empty. Await contributions)', 
+                                style: TextStyle(fontSize: 9, color: Colors.grey, fontStyle: FontStyle.italic)
+                              ),
+                          ],
+                        );
+                      }
                     ),
                 ],
               ),
@@ -231,7 +246,9 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
   }
 
   Widget _buildJoinSection(Circle circle) {
-    bool isAlreadyMember = circle.memberIds.contains("u4"); // Hardcoded user for demo
+    if (currentUser == null) return const SizedBox.shrink();
+
+    bool isAlreadyMember = circle.memberIds.contains(currentUser!.id);
     final currency = isGBP ? "GBP" : "NGN";
     final payAmount = isGBP ? circle.contributionAmount / exchangeRate : circle.contributionAmount;
 
@@ -251,7 +268,7 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
                       MaterialPageRoute(
                         builder: (context) => InterswitchPaymentPage(
                           circleId: circle.id,
-                          userId: "u4",
+                          userId: currentUser!.id,
                           amount: payAmount,
                           currency: currency,
                         ),
@@ -292,7 +309,7 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
                     ? null
                     : () async {
                         try {
-                          await repository.joinCircle(circle.id, "u4");
+                          await repository.joinCircle(circle.id, currentUser!.id);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Successfully joined circle!')),
                           );
@@ -310,6 +327,160 @@ class _CircleDetailsPageState extends State<CircleDetailsPage> {
                 ),
                 child: const Text('Join This Circle'),
               ),
+      ),
+    );
+  }
+  void _showPayoutDialog(Circle circle, List<UbuntuUser> members) async {
+    final TextEditingController accountController = TextEditingController();
+    String selectedMemberId = members.isNotEmpty ? members.first.id : "";
+    String selectedBank = "058"; // Default GTB
+    String verifiedName = "";
+    bool isLookingUp = false;
+
+    final List<Map<String, String>> topBanks = [
+      {"code": "058", "name": "Guaranty Trust Bank"},
+      {"code": "011", "name": "First Bank of Nigeria"},
+      {"code": "033", "name": "United Bank for Africa"},
+      {"code": "044", "name": "Access Bank"},
+      {"code": "057", "name": "Zenith Bank"},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: UbuntuXTheme.deepNavy,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.account_balance_wallet, color: UbuntuXTheme.accentCyan),
+              const SizedBox(width: 12),
+              const Text('Disburse Pot'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Recipient Details:'),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedMemberId,
+                  dropdownColor: UbuntuXTheme.deepNavy,
+                  decoration: const InputDecoration(labelText: 'Member'),
+                  items: members.map((m) => DropdownMenuItem(
+                    value: m.id,
+                    child: Text(m.name, style: const TextStyle(fontSize: 14)),
+                  )).toList(),
+                  onChanged: (val) => selectedMemberId = val!,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedBank,
+                  dropdownColor: UbuntuXTheme.deepNavy,
+                  decoration: const InputDecoration(labelText: 'Destination Bank'),
+                  items: topBanks.map((b) => DropdownMenuItem(
+                    value: b['code'],
+                    child: Text(b['name']!, style: const TextStyle(fontSize: 13)),
+                  )).toList(),
+                  onChanged: (val) => selectedBank = val!,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: accountController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Account Number',
+                    suffixIcon: isLookingUp 
+                      ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)))
+                      : IconButton(
+                          icon: const Icon(Icons.search, size: 20),
+                          onPressed: () async {
+                            if (accountController.text.length == 10) {
+                              setDialogState(() => isLookingUp = true);
+                              try {
+                                final res = await repository.accountLookup(selectedBank, accountController.text);
+                                setDialogState(() {
+                                  verifiedName = res['accountName'] ?? "Unknown Account";
+                                  isLookingUp = false;
+                                });
+                              } catch (e) {
+                                setDialogState(() {
+                                  verifiedName = "Lookup Failed";
+                                  isLookingUp = false;
+                                });
+                              }
+                            }
+                          },
+                        ),
+                  ),
+                ),
+                if (verifiedName.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    verifiedName,
+                    style: TextStyle(
+                      color: verifiedName.contains("Failed") ? Colors.red : Colors.greenAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Note: Funds will be transferred via Interswitch Payout API instantly.',
+                  style: TextStyle(fontSize: 11, color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (accountController.text.length != 10) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid 10-digit account number')));
+                  return;
+                }
+                Navigator.pop(dialogContext); // Close dialog
+                
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(child: CircularProgressIndicator()),
+                );
+
+                try {
+                  await repository.processPayout(
+                    circle.id, 
+                    selectedBank, 
+                    accountController.text, 
+                    isGBP ? "GBP" : "NGN"
+                  );
+                  if (mounted) {
+                    Navigator.pop(context); // Close loading
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Payout Successful! Funds Disbursed.'), backgroundColor: Colors.green),
+                    );
+                    setState(() { _loadData(); });
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context); // Close loading
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Payout Failed: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Execute Payout'),
+            ),
+          ],
+        ),
       ),
     );
   }

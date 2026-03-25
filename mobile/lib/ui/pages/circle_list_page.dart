@@ -41,7 +41,32 @@ class _CircleListPageState extends State<CircleListPage> {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           final circles = snapshot.data ?? [];
+          
+          if (circles.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Icon(Icons.savings_outlined, size: 64, color: UbuntuXTheme.silverGray.withOpacity(0.5)),
+                   const SizedBox(height: 16),
+                   Text(
+                     'No Adashi to join yet',
+                     style: Theme.of(context).textTheme.headlineSmall,
+                   ),
+                   const SizedBox(height: 24),
+                   ElevatedButton(
+                     onPressed: () {
+                        Navigator.pop(context); // Go back to Home to create one
+                     },
+                     child: const Text('Go Back'),
+                   ),
+                ],
+              ),
+            );
+          }
+
           return ListView.separated(
+
             padding: const EdgeInsets.all(24),
             itemCount: circles.length,
             separatorBuilder: (context, index) => const SizedBox(height: 16),

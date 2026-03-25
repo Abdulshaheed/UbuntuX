@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class InterswitchPaymentPage extends StatefulWidget {
   final String circleId;
@@ -26,7 +28,6 @@ class _InterswitchPaymentPageState extends State<InterswitchPaymentPage> {
   @override
   void initState() {
     super.initState();
-    final url = "http://10.0.2.2:8000/checkout/${widget.circleId}?user_id=${widget.userId}&amount=${widget.amount}&currency=${widget.currency}";
     
     controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -46,9 +47,25 @@ class _InterswitchPaymentPageState extends State<InterswitchPaymentPage> {
             return NavigationDecision.navigate;
           },
         ),
-      )
-      ..loadRequest(Uri.parse(url));
+      );
+      
+    _loadPaymentUrl(); 
   }
+
+  Future<void> _loadPaymentUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    
+    final url = "http://10.0.2.2:8000/checkout/${widget.circleId}?user_id=${widget.userId}&amount=${widget.amount}&currency=${widget.currency}";
+    
+    await controller.loadRequest(
+      Uri.parse(url),
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {

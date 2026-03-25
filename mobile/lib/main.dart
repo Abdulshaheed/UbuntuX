@@ -7,9 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final String? userPhone = prefs.getString('user_phone');
+  final String? authToken = prefs.getString('auth_token');
   
-  runApp(UbuntuXApp(initialPage: userPhone != null ? const HomePage() : const LoginPage()));
+  runApp(UbuntuXApp(initialPage: authToken != null ? const HomePage() : const LoginPage()));
 }
 
 class UbuntuXApp extends StatelessWidget {

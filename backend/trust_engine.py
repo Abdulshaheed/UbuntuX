@@ -47,12 +47,15 @@ def predict_trust_score(user_data, is_kyc_verified=False):
     risk_level = risk_map[prediction]
     
     # Calculate a score based on probabilities
-    # We use a simple weighted average of probabilities for a 0-100 score
-    # Low Risk (2) gets higher weight, High Risk (0) lower.
-    score = int((probabilities[2] * 100) + (probabilities[1] * 70) + (probabilities[0] * 30))
+    # Adjusted weights to be more generous for democratic finance
+    score = int((probabilities[2] * 100) + (probabilities[1] * 75) + (probabilities[0] * 40))
     
+    # Base penalty for brand new users - but don't be too harsh
+    if user_data[1] == 0: # 0 contributions
+        score = max(45, score - 15) # Start at a decent baseline
+        
     if is_kyc_verified:
-        score = min(100, score + 15) # Identity Boost
+        score = min(100, score + 35) # Significant Identity Boost
         
     return score, risk_level
 
