@@ -9,14 +9,18 @@ services:
       - key: PYTHON_VERSION
         value: 3.10.0
       - key: ISW_CLIENT_ID
-        sync: false
+        value: IKIA05017037D1D86EEBAA9BB5820D635F37FB960792
       - key: ISW_SECRET_KEY
-        sync: false
+        value: wstGEY3uYfO6t7k
+      - key: ISW_MERCHANT_CODE
+        value: MX275916
+      - key: ISW_PAY_ITEM_ID
+        value: "6609006"
+      - key: SECRET_KEY
+        value: "Ubuntux-Hack-2024-Secret-Key-123!" # Added for JWT security
+      - key: PYTHONPATH
+        value: "."
       - key: ISW_ID_API_BASE_URL
         value: "https://api-marketplace-routing.k8.isw.la/marketplace-routing"
       - key: ISW_PASSPORT_URL
         value: "https://qa.interswitchng.com/passport/oauth/token"
-      - key: ISW_MERCHANT_CODE
-        value: "MX00000"
-      - key: ISW_PAY_ITEM_ID
-        value: "101"
